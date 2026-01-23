@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum OrderStatus {
+  OPEN
+  CLOSED
+  PAID
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships GroupMember[]
+  orders      Order[]
+  items       OrderItem[]
+  payments    Payment[]
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members GroupMember[]
+  orders  Order[]
+}
+
+model GroupMember {
+  id        String       @id @default(uuid())
+  groupId   String
+  userId    String
+  status    MemberStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model Restaurant {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categories MenuCategory[]
+  orders     Order[]
+}
+
+model MenuCategory {
+  id           String   @id @default(uuid())
+  restaurantId String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items      MenuItem[]
+}
+
+model MenuItem {
+  id          String   @id @default(uuid())
+  categoryId  String
+  name        String
+  description String?
+  basePrice   Float
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category MenuCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants MenuItemVariant[]
+  addons   MenuItemAddon[]
+  orders   OrderItem[]
+}
+
+model MenuItemVariant {
+  id         String   @id @default(uuid())
+  menuItemId String
+  name       String
+  priceDiff  Float    @default(0) // Extra cost added to base price
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  menuItem MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+}
+
+model MenuItemAddon {
+  id         String   @id @default(uuid())
+  menuItemId String
+  name       String
+  price      Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  menuItem MenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItems OrderItemAddon[]
+}
+
+model Order {
+  id           String      @id @default(uuid())
+  groupId      String
+  restaurantId String
+  initiatorId  String
+  status       OrderStatus @default(OPEN)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  group      Group      @relation(fields: [groupId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  initiator  User       @relation(fields: [initiatorId], references: [id])
+  items      OrderItem[]
+  receipt    Receipt?
+  payments   Payment[]
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  userId     String
+  menuItemId String
+  variantId  String?
+  priceAtOrder Float    // Price snapshot
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id])
+  menuItem MenuItem         @relation(fields: [menuItemId], references: [id])
+  variant  MenuItemVariant? @relation(fields: [variantId], references: [id])
+  addons   OrderItemAddon[]
+}
+
+model OrderItemAddon {
+  id           String @id @default(uuid())
+  orderItemId  String
+  addonId      String
+  priceAtOrder Float  // Price snapshot
+
+  orderItem OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addon     MenuItemAddon @relation(fields: [addonId], references: [id])
+}
+
+model Receipt {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  imageUrl      String
+  rawParsedData Json?    // Parsed Gemini output
+  subtotal      Float
+  tax           Float    @default(0)
+  serviceFee    Float    @default(0)
+  deliveryFee   Float    @default(0)
+  totalAmount   Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        String   @id @default(uuid())
+  orderId   String
+  userId    String
+  amount    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+}
