@@ -23,11 +23,12 @@ export class OrdersService {
     
     // Fetch group to get name and members
     const group = await this.groupsService.findById(dto.groupId);
-    const restaurant = await this.restaurantsRepository.findById(dto.restaurantId);
+    const restaurant = dto.restaurantId ? await this.restaurantsRepository.findById(dto.restaurantId) : null;
 
     const order = await this.repository.create({
       groupId: dto.groupId,
-      restaurantId: dto.restaurantId,
+      restaurantId: dto.restaurantId as string | undefined,
+      customRestaurantName: dto.customRestaurantName as string | undefined,
       initiatorId: userId,
       status: OrderStatus.OPEN,
     });
@@ -46,11 +47,12 @@ export class OrdersService {
         }
       }
 
-      if (pushTokens.length > 0 && restaurant) {
+      if (pushTokens.length > 0) {
+        const restaurantName = restaurant?.name || dto.customRestaurantName || 'a restaurant';
         await this.notificationsService.sendPushNotification(
           pushTokens,
           'New Order Started!',
-          `${group.name} is ordering from ${restaurant.name}. Join now!`,
+          `${group.name} is ordering from ${restaurantName}. Join now!`,
           { orderId: order.id, groupId: dto.groupId, type: 'NEW_ORDER' }
         );
       }
@@ -73,18 +75,29 @@ export class OrdersService {
       throw new BadRequestException('Order is no longer open');
     }
 
-    const restaurant = await this.restaurantsRepository.findById(order.restaurantId);
-    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    const restaurant = order.restaurantId ? await this.restaurantsRepository.findById(order.restaurantId) : null;
 
-    // Flatten menu items for easy lookup
+    // Flatten menu items for easy lookup if we have a restaurant
     const menuItemsMap = new Map();
-    restaurant.categories.forEach(cat => {
-        cat.items.forEach(item => {
-            menuItemsMap.set(item.id, item);
+    if (restaurant) {
+        restaurant.categories.forEach(cat => {
+            cat.items.forEach(item => {
+                menuItemsMap.set(item.id, item);
+            });
         });
-    });
+    }
 
     const preparedItems = dto.items.map(itemDto => {
+        if (!itemDto.menuItemId) {
+            // Manual item entry
+            return {
+                ...itemDto,
+                priceAtOrder: itemDto.priceAtOrder || 0,
+                customItemName: itemDto.customItemName || 'Unnamed Item',
+                addons: [] // Custom items don't support predefined addons yet
+            };
+        }
+
         const menuItem = menuItemsMap.get(itemDto.menuItemId);
         if (!menuItem) throw new BadRequestException(`Menu item ${itemDto.menuItemId} not found`);
 

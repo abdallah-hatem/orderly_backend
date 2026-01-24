@@ -164,7 +164,7 @@ export class ReceiptsService {
         
         userSplitMap.get(item.userId).items.push({
             id: item.id,
-            name: item.menuItem.name,
+            name: item.menuItem?.name || item.customItemName || 'Unnamed Item',
             quantity: item.quantity,
             originalPrice: originalItemPrice,
             currentPrice: priceToUse

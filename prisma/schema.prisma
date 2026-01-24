@@ -131,34 +131,36 @@ model MenuItemAddon {
 model Order {
   id           String      @id @default(uuid())
   groupId      String
-  restaurantId String
+  restaurantId String?     // Optional for custom restaurants
+  customRestaurantName String? // If restaurantId is null
   initiatorId  String
   status       OrderStatus @default(OPEN)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  group      Group      @relation(fields: [groupId], references: [id])
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
-  initiator  User       @relation(fields: [initiatorId], references: [id])
+  group      Group       @relation(fields: [groupId], references: [id])
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id])
+  initiator  User        @relation(fields: [initiatorId], references: [id])
   items      OrderItem[]
   receipt    Receipt?
   payments   Payment[]
 }
 
 model OrderItem {
-  id         String   @id @default(uuid())
-  orderId    String
-  userId     String
-  menuItemId String
-  variantId  String?
+  id           String   @id @default(uuid())
+  orderId      String
+  userId       String
+  menuItemId   String?  // Optional for custom items
+  customItemName String? // If menuItemId is null
+  variantId    String?
   priceAtOrder Float    // Price snapshot
-  quantity   Int      @default(1)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  quantity     Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user     User             @relation(fields: [userId], references: [id])
-  menuItem MenuItem         @relation(fields: [menuItemId], references: [id])
+  menuItem MenuItem?        @relation(fields: [menuItemId], references: [id])
   variant  MenuItemVariant? @relation(fields: [variantId], references: [id])
   addons   OrderItemAddon[]
 }

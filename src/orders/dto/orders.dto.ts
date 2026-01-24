@@ -9,8 +9,16 @@ export class CreateOrderItemAddonDto {
 
 export class CreateOrderItemDto {
   @IsUUID()
-  @IsNotEmpty()
-  menuItemId: string;
+  @IsOptional()
+  menuItemId?: string;
+
+  @IsString()
+  @IsOptional()
+  customItemName?: string;
+
+  @IsOptional()
+  @Min(0)
+  priceAtOrder?: number;
 
   @IsUUID()
   @IsOptional()
@@ -33,8 +41,12 @@ export class CreateOrderDto {
   groupId: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  restaurantId: string;
+  @IsOptional()
+  restaurantId?: string;
+
+  @IsString()
+  @IsOptional()
+  customRestaurantName?: string;
 }
 
 export class AddItemsToOrderDto {

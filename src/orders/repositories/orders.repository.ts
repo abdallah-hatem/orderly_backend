@@ -50,6 +50,7 @@ export class OrdersRepository {
             orderId,
             userId,
             menuItemId: item.menuItemId,
+            customItemName: item.customItemName,
             variantId: item.variantId,
             quantity: item.quantity,
             priceAtOrder: item.priceAtOrder,
