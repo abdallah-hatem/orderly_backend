@@ -104,4 +104,17 @@ export class GroupsRepository {
       data: { status },
     });
   }
+
+  async update(id: string, data: Prisma.GroupUpdateInput): Promise<Group> {
+    return this.prisma.group.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async delete(id: string): Promise<Group> {
+    return this.prisma.group.delete({
+      where: { id },
+    });
+  }
 }

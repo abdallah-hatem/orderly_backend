@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { GroupsRepository } from './repositories/groups.repository';
 import { CreateGroupDto } from './dto/groups.dto';
 import { MemberStatus } from '@prisma/client';
@@ -38,5 +38,37 @@ export class GroupsService {
   async respondToInvite(groupId: string, userId: string, accept: boolean) {
     const status = accept ? MemberStatus.ACCEPTED : MemberStatus.REJECTED;
     return this.repository.updateMemberStatus(groupId, userId, status);
+  }
+
+  async updateGroup(groupId: string, userId: string, name: string) {
+    const group = await this.repository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+    
+    // Check if user is the creator (first accepted member)
+    const creator = (group as any).members
+      .filter((m: any) => m.status === MemberStatus.ACCEPTED)
+      .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
+    
+    if (creator?.userId !== userId) {
+      throw new ForbiddenException('Only the group creator can update the group');
+    }
+
+    return this.repository.update(groupId, { name });
+  }
+
+  async deleteGroup(groupId: string, userId: string) {
+    const group = await this.repository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+    
+    // Check if user is the creator (first accepted member)
+    const creator = (group as any).members
+      .filter((m: any) => m.status === MemberStatus.ACCEPTED)
+      .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
+    
+    if (creator?.userId !== userId) {
+      throw new ForbiddenException('Only the group creator can delete the group');
+    }
+
+    return this.repository.delete(groupId);
   }
 }
