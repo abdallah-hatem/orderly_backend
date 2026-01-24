@@ -1,14 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { OrdersRepository } from './repositories/orders.repository';
 import { CreateOrderDto, AddItemsToOrderDto } from './dto/orders.dto';
 import { RestaurantsRepository } from '../restaurants/repositories/restaurants.repository';
 import { OrderStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+import { GroupsService } from '../groups/groups.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private repository: OrdersRepository,
     private restaurantsRepository: RestaurantsRepository,
+    private notificationsService: NotificationsService,
+    private groupsService: GroupsService,
   ) {}
 
   async create(userId: string, dto: CreateOrderDto) {
@@ -16,12 +20,45 @@ export class OrdersService {
     if (activeOrder) {
       throw new BadRequestException('Group already has an active order');
     }
-    return this.repository.create({
+    
+    // Fetch group to get name and members
+    const group = await this.groupsService.findById(dto.groupId);
+    const restaurant = await this.restaurantsRepository.findById(dto.restaurantId);
+
+    const order = await this.repository.create({
       groupId: dto.groupId,
       restaurantId: dto.restaurantId,
       initiatorId: userId,
       status: OrderStatus.OPEN,
     });
+
+    // Send notifications to all group members except the initiator
+    try {
+      // Need to fetch members with user info. GroupsService.findById already includes members?
+      // Yes, repository inclusion: include: { members: { include: { user: ... } } }
+      
+      const pushTokens: string[] = [];
+      const members = (group as any).members || [];
+      
+      for (const member of members) {
+        if (member.user?.id !== userId && member.user?.expoPushToken) {
+          pushTokens.push(member.user.expoPushToken);
+        }
+      }
+
+      if (pushTokens.length > 0 && restaurant) {
+        await this.notificationsService.sendPushNotification(
+          pushTokens,
+          'New Order Started!',
+          `${group.name} is ordering from ${restaurant.name}. Join now!`,
+          { orderId: order.id, groupId: dto.groupId, type: 'NEW_ORDER' }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to send order notifications', error);
+    }
+
+    return order;
   }
 
   async findById(id: string) {

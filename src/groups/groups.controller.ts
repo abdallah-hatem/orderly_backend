@@ -23,19 +23,29 @@ export class GroupsController {
     return this.groupsService.findUserInvitations(req.user.userId);
   }
 
+  @Get('invitations/sent')
+  findSentInvitations(@Request() req: any) {
+    return this.groupsService.findUserSentInvitations(req.user.userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.groupsService.findById(id);
   }
 
   @Post(':id/invite')
-  invite(@Param('id') id: string, @Body() dto: InviteMemberDto) {
-    return this.groupsService.inviteMember(id, dto.userId);
+  invite(@Param('id') id: string, @Request() req: any, @Body() dto: InviteMemberDto) {
+    return this.groupsService.inviteMember(id, req.user.userId, dto.userId);
   }
 
   @Put(':id/respond')
   respond(@Param('id') id: string, @Request() req: any, @Body('accept') accept: boolean) {
     return this.groupsService.respondToInvite(id, req.user.userId, accept);
+  }
+
+  @Delete(':id/leave')
+  leave(@Param('id') id: string, @Request() req: any) {
+    return this.groupsService.leaveGroup(id, req.user.userId);
   }
 
   @Patch(':id')

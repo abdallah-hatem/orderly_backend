@@ -20,6 +20,7 @@ export class GroupsRepository {
               select: {
                 id: true,
                 name: true,
+                expoPushToken: true,
               },
             },
           },
@@ -83,12 +84,42 @@ export class GroupsRepository {
     });
   }
 
-  async addMember(groupId: string, userId: string, status: MemberStatus = MemberStatus.PENDING): Promise<GroupMember> {
+  async findSentInvitations(userId: string): Promise<any[]> {
+    return this.prisma.groupMember.findMany({
+      where: {
+        invitedById: userId,
+        status: MemberStatus.PENDING,
+      },
+      include: {
+        group: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findMember(groupId: string, userId: string): Promise<GroupMember | null> {
+    return this.prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+  }
+
+  async addMember(groupId: string, userId: string, status: MemberStatus = MemberStatus.PENDING, invitedById?: string): Promise<GroupMember> {
     return this.prisma.groupMember.create({
       data: {
         groupId,
         userId,
         status,
+        invitedById,
       },
     });
   }
@@ -102,6 +133,29 @@ export class GroupsRepository {
         },
       },
       data: { status },
+    });
+  }
+
+  async updateMemberInviter(groupId: string, userId: string, invitedById: string): Promise<GroupMember> {
+    return this.prisma.groupMember.update({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+      data: { invitedById },
+    });
+  }
+
+  async removeMember(groupId: string, userId: string): Promise<GroupMember> {
+    return this.prisma.groupMember.delete({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
     });
   }
 

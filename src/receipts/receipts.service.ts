@@ -56,9 +56,11 @@ export class ReceiptsService {
         receipt = await this.repository.create(receiptData);
     }
 
+    const { splitResults } = this.calculateSplit(order, receipt);
+
     return {
       receipt,
-      split: this.calculateSplit(order, receipt),
+      split: splitResults,
     };
   }
 
@@ -135,68 +137,146 @@ export class ReceiptsService {
   calculateSplit(order: any, receipt: any) {
     const orderItems = order.items;
     
-    // Calculate total price of all items ordered through the app
-    const orderItemsTotal = orderItems.reduce((sum: number, item: any) => {
-        const itemTotal = item.priceAtOrder * item.quantity;
-        const addonsTotal = item.addons.reduce((aSum: number, a: any) => aSum + a.priceAtOrder, 0);
-        return sum + itemTotal + addonsTotal;
-    }, 0);
-
-    const sharedCosts = receipt.tax + receipt.serviceFee + receipt.deliveryFee;
+    // Check if we have manual overrides for individual item prices
+    const itemOverrides = (receipt.rawParsedData as any)?.individualItemOverrides || {};
 
     // Group items by user
     const userSplitMap = new Map();
 
+    // Initialize map with all users who have items
     orderItems.forEach((item: any) => {
-        const itemTotal = item.priceAtOrder * item.quantity;
-        const addonsTotal = item.addons.reduce((aSum: number, a: any) => aSum + a.priceAtOrder, 0);
-        const userTotal = itemTotal + addonsTotal;
+        if (!userSplitMap.has(item.userId)) {
+            userSplitMap.set(item.userId, {
+                userId: item.userId,
+                userName: item.user.name,
+                items: [],
+                itemsTotal: 0,
+                sharedCostPortion: 0,
+                total: 0
+            });
+        }
+        
+        // Use override if exists, otherwise use original price
+        const originalItemPrice = (item.priceAtOrder * item.quantity) + 
+                                  item.addons.reduce((aSum: number, a: any) => aSum + a.priceAtOrder, 0);
+        
+        const priceToUse = itemOverrides[item.id] !== undefined ? Number(itemOverrides[item.id]) : originalItemPrice;
+        
+        userSplitMap.get(item.userId).items.push({
+            id: item.id,
+            name: item.menuItem.name,
+            quantity: item.quantity,
+            originalPrice: originalItemPrice,
+            currentPrice: priceToUse
+        });
 
-        const current = userSplitMap.get(item.userId) || {
-            userId: item.userId,
-            userName: item.user.name,
-            itemsTotal: 0,
-            sharedCostPortion: 0,
-            total: 0
-        };
-
-        current.itemsTotal += userTotal;
-        userSplitMap.set(item.userId, current);
+        userSplitMap.get(item.userId).itemsTotal += priceToUse;
     });
 
-    const sharedCostPerPerson = sharedCosts / userSplitMap.size;
+    // If orderItems is empty, include all group members to allow splitting fees equally
+    if (userSplitMap.size === 0 && order.group?.members) {
+        order.group.members.forEach((m: any) => {
+            userSplitMap.set(m.user.id, {
+                userId: m.user.id,
+                userName: m.user.name,
+                items: [],
+                itemsTotal: 0,
+                sharedCostPortion: 0,
+                total: 0
+            });
+        });
+    }
 
-    const splitResults = Array.from(userSplitMap.values()).map(userSplit => {
+    // Subtotal should be the sum of all item prices after overrides
+    const newSubtotal = Array.from(userSplitMap.values()).reduce((sum: number, u: any) => sum + u.itemsTotal, 0);
+
+    const sharedCosts = receipt.tax + receipt.serviceFee + receipt.deliveryFee;
+    const sharedCostPerPerson = sharedCosts / (userSplitMap.size || 1);
+
+    const splitResults = Array.from(userSplitMap.values()).map((userSplit: any) => {
         userSplit.sharedCostPortion = sharedCostPerPerson;
         userSplit.total = userSplit.itemsTotal + userSplit.sharedCostPortion;
         return userSplit;
     });
 
-    return splitResults;
+    return {
+        splitResults,
+        calculatedSubtotal: newSubtotal
+    };
   }
 
-  async updateReceipt(id: string, updates: { subtotal?: number; tax: number; serviceFee: number; deliveryFee: number }) {
+  async updateReceipt(id: string, updates: { subtotal?: number; tax: number; serviceFee: number; deliveryFee: number; individualItemOverrides?: Record<string, number> }) {
     const receipt = await this.repository.findById(id);
     if (!receipt) throw new NotFoundException('Receipt not found');
 
-    const newSubtotal = updates.subtotal !== undefined ? updates.subtotal : receipt.subtotal;
-    const newTotal = newSubtotal + updates.tax + updates.serviceFee + updates.deliveryFee;
+    // Merge or set item overrides into rawParsedData
+    const currentData = (receipt.rawParsedData as any) || {};
+    const newData = {
+        ...currentData,
+        individualItemOverrides: updates.individualItemOverrides || currentData.individualItemOverrides || {}
+    };
+
+    // Calculate subtotal from overrides if provided, otherwise use existing
+    const order = await this.ordersService.findById(receipt.orderId);
+    
+    // Temporarily update receipt object for calculation
+    const calcReceipt = { ...receipt, rawParsedData: newData, tax: updates.tax, serviceFee: updates.serviceFee, deliveryFee: updates.deliveryFee };
+    const { splitResults, calculatedSubtotal } = this.calculateSplit(order, calcReceipt);
+
+    const finalSubtotal = updates.subtotal !== undefined ? updates.subtotal : calculatedSubtotal;
+    const newTotal = finalSubtotal + updates.tax + updates.serviceFee + updates.deliveryFee;
 
     const updatedReceipt = await this.repository.update(id, {
-      ...updates,
-      subtotal: newSubtotal,
+      tax: updates.tax,
+      serviceFee: updates.serviceFee,
+      deliveryFee: updates.deliveryFee,
+      subtotal: finalSubtotal,
       totalAmount: newTotal,
+      rawParsedData: newData as any
     });
-
-    const order = await this.ordersService.findById(updatedReceipt.orderId);
 
     return {
       receipt: updatedReceipt,
-      split: this.calculateSplit(order, updatedReceipt),
+      split: splitResults,
     };
   }
 
   async findByOrderId(orderId: string) {
     return this.repository.findByOrderId(orderId);
+  }
+
+  async createManual(orderId: string) {
+    const order = await this.ordersService.findById(orderId);
+    
+    // Calculate current subtotal from order items
+    const subtotal = order.items.reduce((sum: number, item: any) => {
+        const itemTotal = item.priceAtOrder * item.quantity;
+        const addonsTotal = item.addons.reduce((aSum: number, a: any) => aSum + a.priceAtOrder, 0);
+        return sum + itemTotal + addonsTotal;
+    }, 0);
+
+    const receiptData = {
+      orderId,
+      imageUrl: '', // Blank for manual
+      subtotal,
+      tax: 0,
+      serviceFee: 0,
+      deliveryFee: 0,
+      totalAmount: subtotal,
+    };
+
+    let receipt = await this.repository.findByOrderId(orderId);
+    if (receipt) {
+        receipt = await this.repository.update(receipt.id, receiptData);
+    } else {
+        receipt = await this.repository.create(receiptData);
+    }
+
+    const { splitResults } = this.calculateSplit(order, receipt);
+
+    return {
+      receipt,
+      split: splitResults,
+    };
   }
 }

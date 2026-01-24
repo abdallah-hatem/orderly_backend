@@ -8,6 +8,7 @@ import { OrdersModule } from './orders/orders.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaService } from './prisma/prisma.service';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PrismaService } from './prisma/prisma.service';
     OrdersModule,
     ReceiptsModule,
     PaymentsModule,
+    NotificationsModule,
   ],
   providers: [PrismaService],
 })

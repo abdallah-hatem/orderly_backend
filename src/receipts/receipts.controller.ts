@@ -13,7 +13,12 @@ export class ReceiptsController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: { subtotal?: number; tax: number; serviceFee: number; deliveryFee: number }) {
+  update(@Param('id') id: string, @Body() body: { subtotal?: number; tax: number; serviceFee: number; deliveryFee: number; individualItemOverrides?: Record<string, number> }) {
     return this.receiptsService.updateReceipt(id, body);
+  }
+
+  @Post(':orderId/manual')
+  createManual(@Param('orderId') orderId: string) {
+    return this.receiptsService.createManual(orderId);
   }
 }

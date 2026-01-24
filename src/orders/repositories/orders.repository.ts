@@ -24,6 +24,13 @@ export class OrdersRepository {
             },
           },
         },
+        group: {
+          include: {
+            members: {
+              include: { user: { select: { id: true, name: true } } }
+            }
+          }
+        },
         restaurant: true,
         receipt: true,
         payments: {

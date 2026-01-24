@@ -26,4 +26,8 @@ export class UsersService {
   async search(query: string): Promise<User[]> {
     return this.repository.search(query);
   }
+
+  async updatePushToken(userId: string, token: string) {
+    return this.repository.update(userId, { expoPushToken: token });
+  }
 }

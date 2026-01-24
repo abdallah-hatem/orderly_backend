@@ -28,8 +28,10 @@ model User {
   phone     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  expoPushToken String?
 
-  memberships GroupMember[]
+  sentInvitations GroupMember[] @relation("InvitedMembers")
+  memberships GroupMember[] @relation("MemberUser")
   orders      Order[]
   items       OrderItem[]
   payments    Payment[]
@@ -55,7 +57,10 @@ model GroupMember {
   updatedAt DateTime     @updatedAt
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation("MemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  
+  invitedById String?
+  inviter     User?    @relation("InvitedMembers", fields: [invitedById], references: [id])
 
   @@unique([groupId, userId])
 }

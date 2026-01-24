@@ -24,7 +24,7 @@ export class PaymentsService {
     if (!receipt) return { settlement: [] };
 
     // Get the target split (what everyone SHOULD pay)
-    const split = this.receiptsService.calculateSplit(order, receipt); // [{ userId, userName, total }]
+    const { splitResults } = this.receiptsService.calculateSplit(order, receipt); // [{ userId, userName, total }]
     
     // Get what everyone ACTUALLY paid
     const payments = await this.repository.findByOrderId(orderId); // [{ userId, amount }]
@@ -34,7 +34,7 @@ export class PaymentsService {
     // Positive = Creditor (paid too much)
     // Negative = Debtor (paid too little)
     
-    const balances = split.map(s => {
+    const balances = splitResults.map((s: any) => {
         const paid = payments.find(p => p.userId === s.userId)?.amount || 0;
         return {
             userId: s.userId,
@@ -45,8 +45,8 @@ export class PaymentsService {
         };
     });
 
-    const debtors = balances.filter(b => b.balance < -0.01).sort((a, b) => a.balance - b.balance); // Ascending (most negative first)
-    const creditors = balances.filter(b => b.balance > 0.01).sort((a, b) => b.balance - a.balance); // Descending (most positive first)
+    const debtors = balances.filter((b: any) => b.balance < -0.01).sort((a: any, b: any) => a.balance - b.balance); // Ascending (most negative first)
+    const creditors = balances.filter((b: any) => b.balance > 0.01).sort((a: any, b: any) => b.balance - a.balance); // Descending (most positive first)
 
     const settlements = [];
 
