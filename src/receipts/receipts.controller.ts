@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ReceiptsService } from './receipts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -6,6 +6,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class ReceiptsController {
   constructor(private receiptsService: ReceiptsService) {}
+
+  @Get('order/:orderId')
+  findByOrderId(@Param('orderId') orderId: string) {
+    return this.receiptsService.findByOrderId(orderId);
+  }
 
   @Post(':orderId')
   upload(@Param('orderId') orderId: string, @Body('imageUrl') imageUrl: string) {

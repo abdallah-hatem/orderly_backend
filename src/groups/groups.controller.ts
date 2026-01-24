@@ -48,6 +48,11 @@ export class GroupsController {
     return this.groupsService.leaveGroup(id, req.user.userId);
   }
 
+  @Delete(':id/members/:userId')
+  kick(@Param('id') id: string, @Param('userId') userId: string, @Request() req: any) {
+    return this.groupsService.kickMember(id, req.user.userId, userId);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Request() req: any, @Body('name') name: string) {
     return this.groupsService.updateGroup(id, req.user.userId, name);

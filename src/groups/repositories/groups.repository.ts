@@ -55,6 +55,15 @@ export class GroupsRepository {
             },
           },
         },
+        orders: {
+          where: {
+            status: 'OPEN',
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     });
   }

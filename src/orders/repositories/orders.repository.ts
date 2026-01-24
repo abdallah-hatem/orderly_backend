@@ -93,6 +93,16 @@ export class OrdersRepository {
         OR: [
           { initiatorId: userId },
           { items: { some: { userId } } },
+          {
+            group: {
+              members: {
+                some: {
+                  userId,
+                  status: 'ACCEPTED',
+                },
+              },
+            },
+          },
         ],
       },
       include: {

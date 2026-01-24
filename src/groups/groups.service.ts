@@ -96,6 +96,26 @@ export class GroupsService {
     return this.repository.removeMember(groupId, userId);
   }
 
+  async kickMember(groupId: string, creatorId: string, targetUserId: string) {
+    // 1. Identify creator
+    const group = await this.repository.findById(groupId) as any;
+    if (!group) throw new NotFoundException('Group not found');
+
+    const creator = group.members
+      .filter((m: any) => m.status === MemberStatus.ACCEPTED)
+      .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
+
+    if (creator?.userId !== creatorId) {
+      throw new ForbiddenException('Only the group creator can kick members');
+    }
+
+    if (targetUserId === creatorId) {
+        throw new ForbiddenException('Creators cannot kick themselves');
+    }
+
+    return this.repository.removeMember(groupId, targetUserId);
+  }
+
   async updateGroup(groupId: string, userId: string, name: string) {
     const group = await this.repository.findById(groupId);
     if (!group) throw new NotFoundException('Group not found');
