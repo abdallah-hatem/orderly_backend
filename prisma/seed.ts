@@ -55,7 +55,7 @@ async function main() {
                   name: 'Old School',
                   description: 'Pure beef patty, signature Buffalo sauce, and cheddar cheese.',
                   basePrice: 205,
-                  variants: { create: [{ name: '200g', priceDiff: 59 }, { name: '400g', priceDiff: 218 }] },
+                  variants: { create: [{ name: '200g', priceDiff: 60 }, { name: '400g', priceDiff: 218 }] },
                   addons: { create: burgerAddons }
                 },
                 {
@@ -63,6 +63,13 @@ async function main() {
                   description: 'Sautéed mushroom, cheddar cheese, and creamy mayonnaise.',
                   basePrice: 209,
                   variants: { create: [{ name: '200g', priceDiff: 66 }, { name: '400g', priceDiff: 219 }] },
+                  addons: { create: burgerAddons }
+                },
+                {
+                  name: 'Bacon Mushroom Jack',
+                  description: 'Beef bacon, fresh sautéed mushrooms, cheddar cheese, and creamy mayonnaise.',
+                  basePrice: 258,
+                  variants: { create: [{ name: '200g', priceDiff: 75 }, { name: '400g', priceDiff: 213 }] },
                   addons: { create: burgerAddons }
                 },
                 {
@@ -80,10 +87,31 @@ async function main() {
                   addons: { create: burgerAddons }
                 },
                 {
-                  name: 'Charbroiled BBQ',
-                  description: 'Grilled burger, sweet onion, BBQ sauce, and Swiss cheese.',
+                  name: 'Rastafari',
+                  description: 'Cheddar jalapeño bites and creamy Buffalo sauce with a burger patty.',
+                  basePrice: 222,
+                  variants: { create: [{ name: '200g', priceDiff: 68 }, { name: '400g', priceDiff: 218 }] },
+                  addons: { create: burgerAddons }
+                },
+                {
+                  name: 'Truffle Beef',
+                  description: 'Flame-grilled burger with sautéed mushrooms, crispy onions, and truffle sauce.',
                   basePrice: 217,
-                  variants: { create: [{ name: '200g', priceDiff: 63 }, { name: '400g', priceDiff: 205 }] },
+                  variants: { create: [{ name: '200g', priceDiff: 65 }, { name: '400g', priceDiff: 223 }] },
+                  addons: { create: burgerAddons }
+                },
+                {
+                  name: 'X Urban',
+                  description: 'Beef bacon, crispy onion rings, BBQ sauce, and caramelized onions.',
+                  basePrice: 253,
+                  variants: { create: [{ name: '200g', priceDiff: 72 }, { name: '400g', priceDiff: 206 }] },
+                  addons: { create: burgerAddons }
+                },
+                {
+                  name: 'Blue Cheese',
+                  description: 'French blue cheese crumbles and signature mayonnaise.',
+                  basePrice: 204,
+                  variants: { create: [{ name: '200g', priceDiff: 61 }, { name: '400g', priceDiff: 191 }] },
                   addons: { create: burgerAddons }
                 },
               ],
@@ -105,6 +133,18 @@ async function main() {
                   basePrice: 191,
                   addons: { create: chickenAddons }
                 },
+                {
+                  name: 'Rastafari Chicken',
+                  description: 'Crispy jalapeño bites with chicken strips and creamy Buffalo sauce.',
+                  basePrice: 201,
+                  addons: { create: chickenAddons }
+                },
+                {
+                  name: 'Chicken Ditch',
+                  description: 'Chicken strips, beef bacon, sautéed mushrooms, and secret sauce.',
+                  basePrice: 247,
+                  addons: { create: chickenAddons }
+                },
               ],
             },
           },
@@ -116,6 +156,10 @@ async function main() {
                 { name: 'Cheesy Fries', basePrice: 109 },
                 { name: 'Onion Rings', basePrice: 68 },
                 { name: 'Chicken Tenders', basePrice: 133 },
+                { name: 'Cheddar Jalapeño Bites', basePrice: 125 },
+                { name: 'Mozzarella Bites', basePrice: 105 },
+                { name: 'Bacon Fries', basePrice: 146 },
+                { name: 'Fried Buffalo Wings', basePrice: 113 },
               ],
             },
           },
