@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ReceiptsRepository } from './repositories/receipts.repository';
 import { OrdersService } from '../orders/orders.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -33,13 +33,12 @@ export class ReceiptsService {
     if (this.model) {
       try {
         parsedResult = await this.callGemini(imageUrl, orderedItemNames);
-      } catch (error: any) {
+      } catch (error) {
         console.error('Gemini parsing failed:', error);
-        throw new InternalServerErrorException(error.message || 'Gemini parsing failed');
+        throw new InternalServerErrorException(`Failed to parse receipt: ${error.message || 'Unknown error'}`);
       }
     } else {
-      console.warn('GEMINI_API_KEY not found');
-      throw new InternalServerErrorException('GEMINI_API_KEY not found');
+      throw new BadRequestException('Gemini API key not configured. Please check your environment variables.');
     }
 
     const receiptData = {
@@ -265,13 +264,21 @@ export class ReceiptsService {
     // Subtotal should be the sum of all item prices after overrides
     const newSubtotal = Array.from(userSplitMap.values()).reduce((sum: number, u: any) => sum + u.itemsTotal, 0);
 
-    const sharedCosts = receipt.tax + receipt.serviceFee + receipt.deliveryFee;
-    const sharedCostPerPerson = sharedCosts / (userSplitMap.size || 1);
+    const totalSharedCosts = receipt.tax + receipt.serviceFee + receipt.deliveryFee;
 
     const splitResults = Array.from(userSplitMap.values()).map((userSplit: any) => {
-      userSplit.sharedCostPortion = sharedCostPerPerson;
-      userSplit.total = userSplit.itemsTotal + userSplit.sharedCostPortion;
-      return userSplit;
+        if (newSubtotal > 0) {
+            // Proportional split of shared costs
+            userSplit.sharedCostPortion = (userSplit.itemsTotal / newSubtotal) * totalSharedCosts;
+        } else if (userSplitMap.size > 0) {
+            // Equal split if subtotal is 0
+            userSplit.sharedCostPortion = totalSharedCosts / userSplitMap.size;
+        } else {
+            userSplit.sharedCostPortion = 0;
+        }
+        
+        userSplit.total = userSplit.itemsTotal + userSplit.sharedCostPortion;
+        return userSplit;
     });
 
     return {

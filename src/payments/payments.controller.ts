@@ -9,11 +9,13 @@ export class PaymentsController {
 
   @Post()
   recordPayments(@Param('orderId') orderId: string, @Body() body: { payments: { userId: string; amount: number }[] }) {
+    console.log(`[PaymentsController] Recording payments for order ${orderId}`, body.payments);
     return this.paymentsService.recordPayments(orderId, body.payments);
   }
 
   @Get('settlement')
   getSettlement(@Param('orderId') orderId: string) {
+    console.log(`[PaymentsController] Calculating settlement for order ${orderId}`);
     return this.paymentsService.calculateSettlement(orderId);
   }
 }

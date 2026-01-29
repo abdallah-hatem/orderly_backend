@@ -18,16 +18,25 @@ export class PaymentsService {
   }
 
   async calculateSettlement(orderId: string) {
+    console.log(`[PaymentsService] calculateSettlement start for ${orderId}`);
     const order = await this.ordersService.findById(orderId);
-    const receipt = await this.receiptsService.findByOrderId(orderId);
+    console.log(`[PaymentsService] Order found: ${order.id}`);
     
-    if (!receipt) return { settlement: [] };
+    const receipt = await this.receiptsService.findByOrderId(orderId);
+    if (!receipt) {
+        console.log(`[PaymentsService] No receipt found for order ${orderId}`);
+        return { overall: [], settlements: [] };
+    }
+    console.log(`[PaymentsService] Receipt found: ${receipt.id}`);
 
     // Get the target split (what everyone SHOULD pay)
+    console.log(`[PaymentsService] Calculating split...`);
     const { splitResults } = this.receiptsService.calculateSplit(order, receipt); // [{ userId, userName, total }]
+    console.log(`[PaymentsService] Split calculated. Users: ${splitResults.length}`);
     
     // Get what everyone ACTUALLY paid
     const payments = await this.repository.findByOrderId(orderId); // [{ userId, amount }]
+    console.log(`[PaymentsService] Payments fetched. Count: ${payments.length}`);
     
     // Calculate Balance
     // Balance = Paid - Owed
@@ -72,6 +81,7 @@ export class PaymentsService {
         if (Math.abs(creditor.balance) < 0.01) j++;
     }
 
+    console.log(`[PaymentsService] Settlement calculation done. Settlements: ${settlements.length}`);
     return {
         overall: balances,
         settlements
