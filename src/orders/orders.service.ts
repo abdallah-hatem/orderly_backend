@@ -215,6 +215,32 @@ export class OrdersService {
       throw new BadRequestException('Order must be in SPLITTING status');
     }
     
+    // Send notifications to all members that the order is finalized
+    const pushTokens: string[] = [];
+    for (const item of order.items) {
+      const user = (item as any).user;
+      if (user?.id !== userId && user?.expoPushToken && !pushTokens.includes(user.expoPushToken)) {
+        pushTokens.push(user.expoPushToken);
+      }
+    }
+
+    try {
+      if (pushTokens.length > 0) {
+        await this.notificationsService.sendPushNotification(
+          pushTokens,
+          'Order Finalized! ✅',
+          'The order has been finalized. Check the final details!',
+          { 
+            type: 'ORDER_FINALIZED',
+            orderId: id,
+            navigateTo: 'History'
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to send finalization notifications', error);
+    }
+
     return this.repository.updateStatus(id, OrderStatus.CLOSED);
   }
 }
