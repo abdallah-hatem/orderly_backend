@@ -264,19 +264,28 @@ export class ReceiptsService {
     // Subtotal should be the sum of all item prices after overrides
     const newSubtotal = Array.from(userSplitMap.values()).reduce((sum: number, u: any) => sum + u.itemsTotal, 0);
 
-    const totalSharedCosts = receipt.tax + receipt.serviceFee + receipt.deliveryFee;
+    // Separate delivery fee (equal split) from tax + service (proportional split)
+    const proportionalSharedCosts = receipt.tax + receipt.serviceFee;
+    const equalSplitDelivery = receipt.deliveryFee;
 
     const splitResults = Array.from(userSplitMap.values()).map((userSplit: any) => {
+        let proportionalPortion = 0;
+        let equalDeliveryPortion = 0;
+
         if (newSubtotal > 0) {
-            // Proportional split of shared costs
-            userSplit.sharedCostPortion = (userSplit.itemsTotal / newSubtotal) * totalSharedCosts;
+            // Proportional split of tax and service fee based on order value
+            proportionalPortion = (userSplit.itemsTotal / newSubtotal) * proportionalSharedCosts;
         } else if (userSplitMap.size > 0) {
             // Equal split if subtotal is 0
-            userSplit.sharedCostPortion = totalSharedCosts / userSplitMap.size;
-        } else {
-            userSplit.sharedCostPortion = 0;
+            proportionalPortion = proportionalSharedCosts / userSplitMap.size;
+        }
+
+        // Equal split of delivery fee among all members
+        if (userSplitMap.size > 0) {
+            equalDeliveryPortion = equalSplitDelivery / userSplitMap.size;
         }
         
+        userSplit.sharedCostPortion = proportionalPortion + equalDeliveryPortion;
         userSplit.total = userSplit.itemsTotal + userSplit.sharedCostPortion;
         return userSplit;
     });

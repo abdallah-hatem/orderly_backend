@@ -15,6 +15,7 @@ enum MemberStatus {
 
 enum OrderStatus {
   OPEN
+  SPLITTING
   CLOSED
   PAID
   CANCELLED

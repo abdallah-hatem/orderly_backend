@@ -16,7 +16,7 @@ export class OrdersRepository {
       include: {
         items: {
           include: {
-            user: { select: { id: true, name: true } },
+            user: { select: { id: true, name: true, expoPushToken: true } },
             menuItem: true,
             variant: true,
             addons: {

@@ -132,7 +132,44 @@ export class OrdersService {
     if (order.initiatorId !== userId) {
       throw new BadRequestException('Only the initiator can close the order');
     }
-    return this.repository.updateStatus(id, OrderStatus.CLOSED);
+
+    // Get unique user IDs who have items in the order
+    const memberIds = [...new Set(order.items.map((item: any) => item.userId))];
+    
+    // Get push tokens for members (excluding initiator)
+    const pushTokens: string[] = [];
+    for (const item of order.items) {
+      const user = (item as any).user;
+      if (user?.id !== userId && user?.expoPushToken && !pushTokens.includes(user.expoPushToken)) {
+        pushTokens.push(user.expoPushToken);
+      }
+    }
+
+    // Send notifications
+    try {
+      if (pushTokens.length > 0) {
+        console.log(`[CloseOrder] Sending ORDER_SPLIT notifications to ${pushTokens.length} members`);
+        console.log('[CloseOrder] Push tokens:', pushTokens);
+        await this.notificationsService.sendPushNotification(
+          pushTokens,
+          'Bill Split Ready! 💰',
+          'The bill has been split. Check your share!',
+          { 
+            type: 'ORDER_SPLIT',
+            orderId: id,
+            navigateTo: 'History'
+          }
+        );
+        console.log('[CloseOrder] Notifications sent successfully');
+      } else {
+        console.log('[CloseOrder] No push tokens found, no notifications sent');
+      }
+    } catch (error) {
+      console.error('Failed to send split notifications', error);
+    }
+
+
+    return this.repository.updateStatus(id, OrderStatus.SPLITTING);
   }
 
   async cancelOrder(id: string, userId: string) {
@@ -164,5 +201,20 @@ export class OrdersService {
 
   async findUserOrders(userId: string) {
     return this.repository.findUserOrders(userId);
+  }
+
+  async finalizeOrder(id: string, userId: string) {
+    const order = await this.findById(id);
+    
+    // Only initiator can finalize
+    if (order.initiatorId !== userId) {
+      throw new BadRequestException('Only order creator can finalize');
+    }
+    
+    if (order.status !== OrderStatus.SPLITTING) {
+      throw new BadRequestException('Order must be in SPLITTING status');
+    }
+    
+    return this.repository.updateStatus(id, OrderStatus.CLOSED);
   }
 }

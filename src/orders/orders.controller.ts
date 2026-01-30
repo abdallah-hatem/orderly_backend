@@ -37,4 +37,9 @@ export class OrdersController {
   removeItem(@Param('id') id: string, @Param('itemId') itemId: string, @Request() req: any) {
     return this.ordersService.removeItem(id, itemId, req.user.userId);
   }
+
+  @Put(':id/finalize')
+  finalize(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.finalizeOrder(id, req.user.userId);
+  }
 }
