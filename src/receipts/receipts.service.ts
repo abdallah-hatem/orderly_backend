@@ -338,7 +338,16 @@ export class ReceiptsService {
   }
 
   async findByOrderId(orderId: string) {
-    return this.repository.findByOrderId(orderId);
+    const receipt = await this.repository.findByOrderId(orderId);
+    if (!receipt) return null;
+
+    const order = await this.ordersService.findById(orderId);
+    const { splitResults } = this.calculateSplit(order, receipt);
+
+    return {
+      receipt,
+      split: splitResults
+    };
   }
 
   async createManual(orderId: string) {

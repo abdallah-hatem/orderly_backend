@@ -22,11 +22,12 @@ export class PaymentsService {
     const order = await this.ordersService.findById(orderId);
     console.log(`[PaymentsService] Order found: ${order.id}`);
     
-    const receipt = await this.receiptsService.findByOrderId(orderId);
-    if (!receipt) {
+    const result = await this.receiptsService.findByOrderId(orderId);
+    if (!result) {
         console.log(`[PaymentsService] No receipt found for order ${orderId}`);
         return { overall: [], settlements: [] };
     }
+    const { receipt } = result;
     console.log(`[PaymentsService] Receipt found: ${receipt.id}`);
 
     // Get the target split (what everyone SHOULD pay)
@@ -84,7 +85,8 @@ export class PaymentsService {
     console.log(`[PaymentsService] Settlement calculation done. Settlements: ${settlements.length}`);
     return {
         overall: balances,
-        settlements
+        settlements,
+        split: splitResults // Add the full split details here
     };
   }
 }
