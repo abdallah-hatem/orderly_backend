@@ -65,15 +65,33 @@ export class ReceiptsService {
     let hasNewOverrides = false;
 
     if (parsedResult.items && parsedResult.items.length > 0) {
-      order.items.forEach((orderItem: any) => {
-        const orderItemName = (orderItem.menuItem?.name || orderItem.customItemName || '').trim();
+      // Group order items by name (case-insensitive)
+      const orderItemsByName = new Map<string, any[]>();
+      order.items.forEach((item: any) => {
+        const name = (item.menuItem?.name || item.customItemName || '').trim().toLowerCase();
+        let items = orderItemsByName.get(name);
+        if (!items) {
+          items = [];
+          orderItemsByName.set(name, items);
+        }
+        items.push(item);
+      });
 
-        // Find if Gemini matched this specific item name
-        const match = parsedResult.items.find((gi: any) => gi.matchedName === orderItemName);
+      parsedResult.items.forEach((gi: any) => {
+        if (!gi.matchedName || gi.totalPrice === undefined) return;
 
-        if (match && match.totalPrice !== undefined) {
-          currentOverrides[orderItem.id] = match.totalPrice;
-          hasNewOverrides = true;
+        const matchedName = gi.matchedName.trim().toLowerCase();
+        const matchingOrderItems = orderItemsByName.get(matchedName);
+
+        if (matchingOrderItems && matchingOrderItems.length > 0) {
+          // Proportionally distribute the line total among all order items that matched this name
+          // We split the totalPrice of the line item on the receipt by the number of matching items in our order
+          const portionPerItem = gi.totalPrice / matchingOrderItems.length;
+
+          matchingOrderItems.forEach((oi: any) => {
+            currentOverrides[oi.id] = portionPerItem;
+            hasNewOverrides = true;
+          });
         }
       });
     }
@@ -205,8 +223,9 @@ export class ReceiptsService {
       }
 
       // Use override if exists, otherwise use original price
-      const originalItemPrice = (item.priceAtOrder * item.quantity) +
-        item.addons.reduce((aSum: number, a: any) => aSum + a.priceAtOrder, 0);
+      const basePrice = (item.priceAtOrder * item.quantity);
+      const addonsPrice = item.addons.reduce((aSum: number, a: any) => aSum + (a.priceAtOrder * item.quantity), 0);
+      const originalItemPrice = basePrice + addonsPrice;
 
       const priceToUse = itemOverrides[item.id] !== undefined ? Number(itemOverrides[item.id]) : originalItemPrice;
 
@@ -269,25 +288,25 @@ export class ReceiptsService {
     const equalSplitDelivery = receipt.deliveryFee;
 
     const splitResults = Array.from(userSplitMap.values()).map((userSplit: any) => {
-        let proportionalPortion = 0;
-        let equalDeliveryPortion = 0;
+      let proportionalPortion = 0;
+      let equalDeliveryPortion = 0;
 
-        if (newSubtotal > 0) {
-            // Proportional split of tax and service fee based on order value
-            proportionalPortion = (userSplit.itemsTotal / newSubtotal) * proportionalSharedCosts;
-        } else if (userSplitMap.size > 0) {
-            // Equal split if subtotal is 0
-            proportionalPortion = proportionalSharedCosts / userSplitMap.size;
-        }
+      if (newSubtotal > 0) {
+        // Proportional split of tax and service fee based on order value
+        proportionalPortion = (userSplit.itemsTotal / newSubtotal) * proportionalSharedCosts;
+      } else if (userSplitMap.size > 0) {
+        // Equal split if subtotal is 0
+        proportionalPortion = proportionalSharedCosts / userSplitMap.size;
+      }
 
-        // Equal split of delivery fee among all members
-        if (userSplitMap.size > 0) {
-            equalDeliveryPortion = equalSplitDelivery / userSplitMap.size;
-        }
-        
-        userSplit.sharedCostPortion = proportionalPortion + equalDeliveryPortion;
-        userSplit.total = userSplit.itemsTotal + userSplit.sharedCostPortion;
-        return userSplit;
+      // Equal split of delivery fee among all members
+      if (userSplitMap.size > 0) {
+        equalDeliveryPortion = equalSplitDelivery / userSplitMap.size;
+      }
+
+      userSplit.sharedCostPortion = proportionalPortion + equalDeliveryPortion;
+      userSplit.total = userSplit.itemsTotal + userSplit.sharedCostPortion;
+      return userSplit;
     });
 
     return {
@@ -296,7 +315,7 @@ export class ReceiptsService {
     };
   }
 
-  async updateReceipt(id: string, updates: { subtotal?: number; tax: number; serviceFee: number; deliveryFee: number; individualItemOverrides?: Record<string, number>; manualExtraItems?: any[] }) {
+  async updateReceipt(id: string, updates: { subtotal?: number; tax: number; serviceFee: number; deliveryFee: number; individualItemOverrides?: Record<string, number>; manualExtraItems?: any[]; rawItems?: any[] }) {
     const receipt = await this.repository.findById(id);
     if (!receipt) throw new NotFoundException('Receipt not found');
 
@@ -304,6 +323,7 @@ export class ReceiptsService {
     const currentData = (receipt.rawParsedData as any) || {};
     const newData = {
       ...currentData,
+      items: updates.rawItems !== undefined ? updates.rawItems : (currentData.items || []),
       individualItemOverrides: updates.individualItemOverrides || currentData.individualItemOverrides || {},
       manualExtraItems: updates.manualExtraItems !== undefined ? updates.manualExtraItems : (currentData.manualExtraItems || [])
     };
